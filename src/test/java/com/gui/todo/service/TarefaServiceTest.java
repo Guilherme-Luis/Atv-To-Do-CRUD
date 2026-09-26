@@ -1,23 +1,13 @@
 package com.gui.todo.service;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.mock.mockito.SpyBean;
-import org.springframework.data.domain.Example;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -25,220 +15,175 @@ import com.gui.todo.exception.RegraNegocioException;
 import com.gui.todo.model.entity.Tarefa;
 import com.gui.todo.model.enums.StatusTarefa;
 import com.gui.todo.model.repository.TarefaRepository;
-import com.gui.todo.model.repository.TarefaRepositoryTest;
-import com.gui.todo.service.impl.TarefaServiceImpl;
 
 @ExtendWith(SpringExtension.class)
+@SpringBootTest
 @ActiveProfiles("test")
 public class TarefaServiceTest {
 
-	@SpyBean
-	TarefaServiceImpl service;
+	@Autowired
+	TarefaService service;
 
-	@MockBean
+	@Autowired
 	TarefaRepository repository;
 
 	@Test
 	public void deveSalvarUmaTarefa() {
-		Tarefa tarefaASalvar = TarefaRepositoryTest.criarTarefa();
-		doNothing().when(service).validar(tarefaASalvar);
+		repository.deleteAll();
+		Tarefa tarefa = criarTarefa();
 
-		Tarefa tarefaSalva = TarefaRepositoryTest.criarTarefa();
-		tarefaSalva.setId(1L);
-		when(repository.save(tarefaASalvar)).thenReturn(tarefaSalva);
+		Tarefa tarefaSalva = service.salvar(tarefa);
 
-		Tarefa tarefa = service.salvar(tarefaASalvar);
-
-		Assertions.assertThat(tarefa.getId()).isEqualTo(tarefaSalva.getId());
-		Assertions.assertThat(tarefa.getStatus()).isEqualTo(StatusTarefa.PENDENTE);
+		Assertions.assertNotNull(tarefaSalva.getId());
+		Assertions.assertEquals(StatusTarefa.PENDENTE, tarefaSalva.getStatus());
+		Assertions.assertNotNull(tarefaSalva.getDataCriacao());
+		Assertions.assertNotNull(tarefaSalva.getDataAtualizacao());
 	}
 
 	@Test
-	public void deveDefinirStatusPendenteEDatasAoSalvarTarefaSemStatus() {
-		Tarefa tarefaASalvar = TarefaRepositoryTest.criarTarefa();
-		tarefaASalvar.setStatus(null);
-		tarefaASalvar.setDataCriacao(null);
-		tarefaASalvar.setDataAtualizacao(null);
-		when(repository.save(tarefaASalvar)).thenReturn(tarefaASalvar);
+	public void naoDeveSalvarUmaTarefaSemNome() {
+		Tarefa tarefa = criarTarefa();
+		tarefa.setNome("");
 
-		Tarefa tarefa = service.salvar(tarefaASalvar);
-
-		Assertions.assertThat(tarefa.getStatus()).isEqualTo(StatusTarefa.PENDENTE);
-		Assertions.assertThat(tarefa.getDataCriacao()).isNotNull();
-		Assertions.assertThat(tarefa.getDataAtualizacao()).isNotNull();
-	}
-
-	@Test
-	public void naoDeveSalvarUmaTarefaQuandoHouverErroDeValidacao() {
-		Tarefa tarefaASalvar = TarefaRepositoryTest.criarTarefa();
-		doThrow(RegraNegocioException.class).when(service).validar(tarefaASalvar);
-
-		Assertions.catchThrowableOfType(() -> service.salvar(tarefaASalvar), RegraNegocioException.class);
-
-		verify(repository, never()).save(tarefaASalvar);
+		Assertions.assertThrows(RegraNegocioException.class,
+				() -> service.salvar(tarefa));
 	}
 
 	@Test
 	public void deveAtualizarUmaTarefa() {
-		LocalDateTime dataCriacao = LocalDateTime.of(2026, 9, 1, 10, 0);
-		Tarefa tarefaExistente = TarefaRepositoryTest.criarTarefa();
-		tarefaExistente.setId(1L);
-		tarefaExistente.setDataCriacao(dataCriacao);
+		Tarefa tarefaSalva = service.salvar(criarTarefa());
+		Tarefa tarefaOriginal = repository.findById(tarefaSalva.getId()).get();
 
-		Tarefa tarefaAtualizar = TarefaRepositoryTest.criarTarefa();
-		tarefaAtualizar.setId(1L);
-		tarefaAtualizar.setNome("Nome alterado");
-		tarefaAtualizar.setDataCriacao(null);
+		Tarefa tarefa = criarTarefa();
+		tarefa.setId(tarefaSalva.getId());
+		tarefa.setNome("Estudar Spring Boot");
+		tarefa.setStatus(StatusTarefa.EM_ANDAMENTO);
+		service.atualizar(tarefa);
 
-		doNothing().when(service).validar(tarefaAtualizar);
-		when(repository.findById(1L)).thenReturn(Optional.of(tarefaExistente));
-		when(repository.save(tarefaAtualizar)).thenReturn(tarefaAtualizar);
-
-		Tarefa tarefa = service.atualizar(tarefaAtualizar);
-
-		verify(repository).save(tarefaAtualizar);
-		Assertions.assertThat(tarefa.getNome()).isEqualTo("Nome alterado");
-		Assertions.assertThat(tarefa.getDataCriacao()).isEqualTo(dataCriacao);
-		Assertions.assertThat(tarefa.getDataAtualizacao()).isAfter(dataCriacao);
+		Tarefa tarefaAtualizada = repository.findById(tarefaSalva.getId()).get();
+		Assertions.assertEquals("Estudar Spring Boot", tarefaAtualizada.getNome());
+		Assertions.assertEquals(StatusTarefa.EM_ANDAMENTO, tarefaAtualizada.getStatus());
+		Assertions.assertEquals(tarefaOriginal.getDataCriacao(), tarefaAtualizada.getDataCriacao());
 	}
 
 	@Test
-	public void deveLancarErroAoTentarAtualizarUmaTarefaQueAindaNaoFoiSalva() {
-		Tarefa tarefa = TarefaRepositoryTest.criarTarefa();
+	public void deveLancarErroAoAtualizarUmaTarefaSemId() {
+		Tarefa tarefa = criarTarefa();
 
-		Assertions.catchThrowableOfType(() -> service.atualizar(tarefa), NullPointerException.class);
-
-		verify(repository, never()).save(tarefa);
+		Assertions.assertThrows(NullPointerException.class,
+				() -> service.atualizar(tarefa));
 	}
 
 	@Test
-	public void deveLancarErroAoTentarAtualizarUmaTarefaInexistente() {
-		Tarefa tarefa = TarefaRepositoryTest.criarTarefa();
-		tarefa.setId(1L);
-		when(repository.findById(1L)).thenReturn(Optional.empty());
+	public void deveLancarErroAoAtualizarUmaTarefaInexistente() {
+		Tarefa tarefa = criarTarefa();
+		tarefa.setId(999L);
 
-		Throwable erro = Assertions.catchThrowable(() -> service.atualizar(tarefa));
-
-		Assertions.assertThat(erro).isInstanceOf(RegraNegocioException.class)
-				.hasMessage("Tarefa não encontrada na base de dados.");
-		verify(repository, never()).save(tarefa);
+		Assertions.assertThrows(RegraNegocioException.class,
+				() -> service.atualizar(tarefa));
 	}
 
 	@Test
 	public void deveDeletarUmaTarefa() {
-		Tarefa tarefa = TarefaRepositoryTest.criarTarefa();
-		tarefa.setId(1L);
+		Tarefa tarefaSalva = service.salvar(criarTarefa());
 
-		service.deletar(tarefa);
+		service.deletar(tarefaSalva);
 
-		verify(repository).delete(tarefa);
+		Optional<Tarefa> result = repository.findById(tarefaSalva.getId());
+		Assertions.assertFalse(result.isPresent());
 	}
 
 	@Test
-	public void deveLancarErroAoTentarDeletarUmaTarefaQueAindaNaoFoiSalva() {
-		Tarefa tarefa = TarefaRepositoryTest.criarTarefa();
+	public void deveLancarErroAoDeletarUmaTarefaSemId() {
+		Tarefa tarefa = criarTarefa();
 
-		Assertions.catchThrowableOfType(() -> service.deletar(tarefa), NullPointerException.class);
-
-		verify(repository, never()).delete(tarefa);
-	}
-
-	@Test
-	public void deveFiltrarTarefas() {
-		Tarefa tarefa = TarefaRepositoryTest.criarTarefa();
-		tarefa.setId(1L);
-		List<Tarefa> lista = Arrays.asList(tarefa);
-		when(repository.findAll(any(Example.class))).thenReturn(lista);
-
-		List<Tarefa> resultado = service.buscar(tarefa);
-
-		Assertions.assertThat(resultado).isNotEmpty().hasSize(1).contains(tarefa);
+		Assertions.assertThrows(NullPointerException.class,
+				() -> service.deletar(tarefa));
 	}
 
 	@Test
 	public void deveAtualizarOStatusDeUmaTarefa() {
-		Tarefa tarefa = TarefaRepositoryTest.criarTarefa();
-		tarefa.setId(1L);
-		StatusTarefa novoStatus = StatusTarefa.CONCLUIDA;
-		doNothing().when(service).validar(tarefa);
-		when(repository.findById(1L)).thenReturn(Optional.of(tarefa));
-		when(repository.save(tarefa)).thenReturn(tarefa);
+		Tarefa tarefaSalva = service.salvar(criarTarefa());
 
-		service.atualizarStatus(tarefa, novoStatus);
+		service.atualizarStatus(tarefaSalva, StatusTarefa.CONCLUIDA);
 
-		Assertions.assertThat(tarefa.getStatus()).isEqualTo(novoStatus);
-		verify(service).atualizar(tarefa);
+		Tarefa tarefaAtualizada = repository.findById(tarefaSalva.getId()).get();
+		Assertions.assertEquals(StatusTarefa.CONCLUIDA, tarefaAtualizada.getStatus());
 	}
 
 	@Test
 	public void deveLancarErroAoAtualizarStatusNulo() {
-		Tarefa tarefa = TarefaRepositoryTest.criarTarefa();
-		tarefa.setId(1L);
+		Tarefa tarefaSalva = service.salvar(criarTarefa());
 
-		Throwable erro = Assertions.catchThrowable(() -> service.atualizarStatus(tarefa, null));
+		Assertions.assertThrows(RegraNegocioException.class,
+				() -> service.atualizarStatus(tarefaSalva, null));
+	}
 
-		Assertions.assertThat(erro).isInstanceOf(RegraNegocioException.class).hasMessage("Informe um Status válido.");
-		verify(repository, never()).save(tarefa);
+	@Test
+	public void deveBuscarTarefasPeloNome() {
+		repository.deleteAll();
+		service.salvar(criarTarefa());
+		Tarefa outraTarefa = criarTarefa();
+		outraTarefa.setNome("Mercado");
+		service.salvar(outraTarefa);
+
+		Tarefa filtro = new Tarefa();
+		filtro.setNome("estud");
+		List<Tarefa> result = service.buscar(filtro);
+
+		Assertions.assertEquals(1, result.size());
+		Assertions.assertEquals("Estudar", result.get(0).getNome());
 	}
 
 	@Test
 	public void deveObterUmaTarefaPorId() {
-		Long id = 1L;
-		Tarefa tarefa = TarefaRepositoryTest.criarTarefa();
-		tarefa.setId(id);
-		when(repository.findById(id)).thenReturn(Optional.of(tarefa));
+		Tarefa tarefaSalva = service.salvar(criarTarefa());
 
-		Optional<Tarefa> resultado = service.obterPorId(id);
+		Optional<Tarefa> result = service.obterPorId(tarefaSalva.getId());
 
-		Assertions.assertThat(resultado.isPresent()).isTrue();
+		Assertions.assertTrue(result.isPresent());
 	}
 
 	@Test
-	public void deveRetornarVazioQuandoATarefaNaoExiste() {
-		Long id = 1L;
-		when(repository.findById(id)).thenReturn(Optional.empty());
+	public void deveValidarUmaTarefa() {
+		Tarefa tarefa = criarTarefa();
 
-		Optional<Tarefa> resultado = service.obterPorId(id);
-
-		Assertions.assertThat(resultado.isPresent()).isFalse();
+		Assertions.assertDoesNotThrow(() -> service.validar(tarefa));
 	}
 
 	@Test
-	public void deveLancarErrosAoValidarUmaTarefa() {
-		Tarefa tarefa = new Tarefa();
+	public void deveLancarErroAoValidarTarefaSemDescricao() {
+		Tarefa tarefa = criarTarefa();
+		tarefa.setDescricao(null);
 
-		Throwable erro = Assertions.catchThrowable(() -> service.validar(tarefa));
-		Assertions.assertThat(erro).isInstanceOf(RegraNegocioException.class).hasMessage("Informe um Nome válido.");
+		Assertions.assertThrows(RegraNegocioException.class,
+				() -> service.validar(tarefa));
+	}
 
-		tarefa.setNome("");
-
-		erro = Assertions.catchThrowable(() -> service.validar(tarefa));
-		Assertions.assertThat(erro).isInstanceOf(RegraNegocioException.class).hasMessage("Informe um Nome válido.");
-
+	@Test
+	public void deveLancarErroAoValidarTarefaComNomeMaiorQueOPermitido() {
+		Tarefa tarefa = criarTarefa();
 		tarefa.setNome("a".repeat(101));
 
-		erro = Assertions.catchThrowable(() -> service.validar(tarefa));
-		Assertions.assertThat(erro).isInstanceOf(RegraNegocioException.class).hasMessage("O Nome deve ter no máximo 100 caracteres.");
+		Assertions.assertThrows(RegraNegocioException.class,
+				() -> service.validar(tarefa));
+	}
 
-		tarefa.setNome("Estudar");
-
-		erro = Assertions.catchThrowable(() -> service.validar(tarefa));
-		Assertions.assertThat(erro).isInstanceOf(RegraNegocioException.class).hasMessage("Informe uma Descrição válida.");
-
-		tarefa.setDescricao("a".repeat(256));
-
-		erro = Assertions.catchThrowable(() -> service.validar(tarefa));
-		Assertions.assertThat(erro).isInstanceOf(RegraNegocioException.class).hasMessage("A Descrição deve ter no máximo 255 caracteres.");
-
-		tarefa.setDescricao("Estudar para a prova");
+	@Test
+	public void deveLancarErroAoValidarTarefaComObservacoesMaiorQueOPermitido() {
+		Tarefa tarefa = criarTarefa();
 		tarefa.setObservacoes("a".repeat(501));
 
-		erro = Assertions.catchThrowable(() -> service.validar(tarefa));
-		Assertions.assertThat(erro).isInstanceOf(RegraNegocioException.class).hasMessage("As Observações devem ter no máximo 500 caracteres.");
+		Assertions.assertThrows(RegraNegocioException.class,
+				() -> service.validar(tarefa));
+	}
 
-		tarefa.setObservacoes(null);
-
-		erro = Assertions.catchThrowable(() -> service.validar(tarefa));
-		Assertions.assertThat(erro).isNull();
+	public static Tarefa criarTarefa() {
+		return Tarefa
+				.builder()
+				.nome("Estudar")
+				.descricao("Estudar para a prova de Lab. Des. Multiplataforma")
+				.observacoes("Capítulos 1 ao 3")
+				.build();
 	}
 }

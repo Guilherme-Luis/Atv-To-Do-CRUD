@@ -31,11 +31,11 @@ Status possíveis: `PENDENTE`, `EM_ANDAMENTO`, `CONCLUIDA`, `CANCELADA`.
 ## 🛠 Tecnologias utilizadas
 
 - Java 17
-- Spring Boot 3.2.8 (Web, Data JPA)
+- Spring Boot 3.2.8 (Data JPA)
 - PostgreSQL
 - Lombok
 - H2 (banco em memória usado nos testes)
-- JUnit 5 + Mockito
+- JUnit 5
 
 ## 🎲 Criando o banco de dados (pgAdmin 4)
 
@@ -66,7 +66,7 @@ Se o seu PostgreSQL estiver em outra porta ou com outra senha, é só alterar es
 
 1. `File > Import > Maven > Existing Maven Projects` e selecione a pasta do projeto.
 2. Execute a classe `TodoApplication` com `Run As > Java Application` (ou `Spring Boot App`, se estiver usando o STS).
-3. A API sobe em `http://localhost:8080`.
+3. A aplicação sobe conectando no banco `todolist`.
 
 Pelo terminal também é possível executar com:
 
@@ -74,45 +74,23 @@ Pelo terminal também é possível executar com:
 ./mvnw spring-boot:run
 ```
 
-## 🔗 Endpoints
+## ⚙️ Serviço
 
-| Método | Rota                                   | Descrição                         |
-|--------|----------------------------------------|-----------------------------------|
-| GET    | `/api/tarefas`                         | Lista as tarefas (filtros opcionais `nome` e `status`) |
-| GET    | `/api/tarefas/{id}`                    | Busca uma tarefa pelo id          |
-| POST   | `/api/tarefas`                         | Cria uma tarefa                   |
-| PUT    | `/api/tarefas/{id}`                    | Altera uma tarefa                 |
-| PUT    | `/api/tarefas/{id}/atualiza-status`    | Altera somente o status           |
-| DELETE | `/api/tarefas/{id}`                    | Deleta uma tarefa                 |
+As regras ficam em `TarefaServiceImpl`:
 
-Exemplo de corpo para criar/alterar:
-
-```json
-{
-  "nome": "Estudar",
-  "descricao": "Estudar para a prova de LDM",
-  "status": "PENDENTE",
-  "observacoes": "Capítulos 1 ao 3"
-}
-```
-
-Exemplo para atualizar o status:
-
-```json
-{
-  "status": "CONCLUIDA"
-}
-```
-
-Ao criar uma tarefa sem status ela fica como `PENDENTE`. As datas de criação e atualização são preenchidas automaticamente.
+- `salvar` - cria a tarefa; sem status ela fica como `PENDENTE` e as datas de criação e atualização são preenchidas automaticamente
+- `atualizar` - altera a tarefa, mantendo a data de criação e atualizando a data de atualização
+- `deletar` - deleta a tarefa
+- `atualizarStatus` - altera somente o status
+- `buscar` / `obterPorId` - consultas
+- `validar` - valida nome, descrição e observações
 
 ## ✅ Testes
 
 Os testes usam o profile `test`, que roda em cima do H2 em memória, então não precisam do PostgreSQL ligado.
 
 - `TarefaRepositoryTest` - testes de integração do repositório com o banco
-- `TarefaServiceTest` - testes unitários do serviço (Mockito)
-- `TarefaResourceTest` - testes da API (MockMvc)
+- `TarefaServiceTest` - testes do serviço (regras de negócio e validações)
 
 No Eclipse: botão direito em `src/test/java` > `Run As > JUnit Test`. Pelo terminal:
 
