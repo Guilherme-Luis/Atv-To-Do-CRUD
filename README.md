@@ -2,7 +2,7 @@
 
 Projeto avaliativo do 1º bimestre de Lab. Des. Multiplataforma - 6º DSM.
 
-Backend de uma lista de tarefas feito em Java com Spring Boot e PostgreSQL. Permite criar, alterar e deletar tarefas. Não tem login nem usuário.
+Backend de uma lista de tarefas feito em Java com Spring Boot e PostgreSQL. Permite criar, alterar e deletar tarefas.
 
 A tarefa tem nome, descrição, status, observações, data de criação e data de atualização. O status pode ser PENDENTE, EM_ANDAMENTO, CONCLUIDA ou CANCELADA.
 
